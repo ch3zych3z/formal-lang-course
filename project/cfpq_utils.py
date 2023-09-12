@@ -17,7 +17,7 @@ def get_graph_info(name: str) -> GraphInfo:
     return GraphInfo(
         vertices_count=graph.number_of_nodes(),
         edges_count=graph.number_of_edges(),
-        labels=set(cfpq_data.get_sorted_labels(graph))
+        labels=set(cfpq_data.get_sorted_labels(graph)),
     )
 
 
@@ -26,7 +26,9 @@ def write_graph_dot(graph: MultiDiGraph, f: TextIO) -> None:
     f.write(dot)
 
 
-def save_dot_labeled_two_cycles_graph(n: int, m: int, labels: Tuple[str, str], path: str) -> None:
+def save_dot_labeled_two_cycles_graph(
+    n: int, m: int, labels: Tuple[str, str], path: str
+) -> None:
     graph = cfpq_data.labeled_two_cycles_graph(n, m, labels=labels)
-    with open(path, 'w') as f:
+    with open(path, "w") as f:
         write_graph_dot(graph, f)

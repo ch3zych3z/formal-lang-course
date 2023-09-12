@@ -23,5 +23,4 @@ def test_write_graph_dot():
     save_dot_labeled_two_cycles_graph(n, m, labels, path)
 
     written_graph = nx.nx_pydot.read_dot(path)
-    assert graph.__eq__(written_graph) # for any reason (==) doesn't work properly
-
+    assert graph.__eq__(written_graph)  # for any reason (==) doesn't work properly
