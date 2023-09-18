@@ -3,5 +3,6 @@ black
 cfpq-data
 pre-commit
 pydot
+pygraphviz
 pytest
 scipy
