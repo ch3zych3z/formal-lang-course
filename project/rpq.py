@@ -4,10 +4,7 @@ import project.automata_utils as fau
 
 
 def intersection_rpq(
-    regex: str,
-    graph: MultiDiGraph,
-    start_states: set = None,
-    final_states: set = None
+    regex: str, graph: MultiDiGraph, start_states: set = None, final_states: set = None
 ):
     fa1 = fau.nfa_from_graph(graph, start_states, final_states)
     fa2 = fau.dfa_from_regex(regex)
@@ -22,7 +19,10 @@ def intersection_rpq(
         start_state = states[row]
         final_state = states[col]
 
-        if start_state in intersection.start_states and final_state in intersection.final_states:
+        if (
+            start_state in intersection.start_states
+            and final_state in intersection.final_states
+        ):
             start = start_state.value[0]
             final = final_state.value[0]
             result.add((start, final))
