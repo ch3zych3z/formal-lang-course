@@ -28,3 +28,15 @@ def intersection_rpq(
             result.add((start, final))
 
     return result
+
+
+def bfs_rpq(
+    regex: str,
+    graph: MultiDiGraph,
+    start_nodes: set = None,
+    final_nodes: set = None,
+    separated_start: bool = False,
+):
+    fa = fau.nfa_from_graph(graph, start_nodes, final_nodes)
+    query = fau.dfa_from_regex(regex)
+    return fau.constraint_reachability(fa, query, separated_start)

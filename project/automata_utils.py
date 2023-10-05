@@ -146,13 +146,13 @@ def intersect(fa1: FiniteAutomaton, fa2: FiniteAutomaton) -> FiniteAutomaton:
     ).compose()
 
 
-def transitive_closure(fa: FiniteAutomaton):
+def adjacency_matrix(fa: FiniteAutomaton):
     states_count = len(fa.states)
     if states_count == 0:
         return sparse.dok_matrix((0, 0), dtype=bool)
 
     states_indices = {state: ind for (ind, state) in enumerate(fa.states)}
-    transitive_closure = sparse.dok_matrix((states_count, states_count), dtype=bool)
+    adj_matrix = sparse.dok_matrix((states_count, states_count), dtype=bool)
     for source, transitions_from_source in fa.to_dict().items():
         for destinations in transitions_from_source.values():
             if not isinstance(destinations, set):
@@ -161,14 +161,99 @@ def transitive_closure(fa: FiniteAutomaton):
             for destination in destinations:
                 source_ind = states_indices[source]
                 destination_ind = states_indices[destination]
-                transitive_closure[source_ind, destination_ind] = True
+                adj_matrix[source_ind, destination_ind] = True
+    return adj_matrix
 
-    prev = transitive_closure.nnz
+
+def transitive_closure(fa: FiniteAutomaton):
+    closure = adjacency_matrix(fa)
+
+    prev = closure.nnz
     curr = 0
 
     while prev != curr:
-        transitive_closure += transitive_closure @ transitive_closure
+        closure += closure @ closure
         prev = curr
-        curr = transitive_closure.nnz
+        curr = closure.nnz
 
-    return transitive_closure
+    return closure
+
+
+def _create_front(fa: FiniteAutomaton, constraint: FiniteAutomaton):
+    n = len(fa.states)
+    k = len(constraint.states)
+
+    front = sparse.lil_matrix((k, n + k))
+
+    tail = sparse.lil_array([[state in fa.start_states for state in fa.states]])
+
+    for i in range(k):
+        front[i, i] = True
+        front[i, k:] = tail
+
+    return front.tocsr()
+
+
+def _transform_front(front, constraint_states_cnt: int, separated_start):
+    new_front = sparse.csr_matrix(front.shape, dtype=bool)
+    for row, col in zip(*front.nonzero()):
+        if col < constraint_states_cnt:
+            row_tail = front[row, constraint_states_cnt:]
+            if row_tail.nnz != 0:
+                shifted_row = (
+                    row // constraint_states_cnt * constraint_states_cnt + col
+                    if separated_start
+                    else col
+                )
+                new_front[shifted_row, col] = True
+                new_front[shifted_row, constraint_states_cnt:] += row_tail
+    return new_front
+
+
+def constraint_reachability(
+    fa: FiniteAutomaton,
+    constraint: FiniteAutomaton,
+    separated_start: bool = False,
+):
+    decomp_fa = BooleanDecomposition.from_fa(fa)
+    decomp_constraint = BooleanDecomposition.from_fa(constraint)
+    constr_states_cnt = len(constraint.states)
+    labels = decomp_fa.labels & decomp_constraint.labels
+
+    direct_sum = {}
+    for label in labels:
+        direct_sum[label] = sparse.block_diag(
+            (decomp_constraint[label], decomp_fa[label])
+        )
+
+    front = (
+        sparse.vstack([_create_front(fa, constraint) for _ in fa.start_states])
+        if separated_start
+        else _create_front(fa, constraint)
+    )
+
+    front_nnz = -1
+    while front_nnz != front.nnz:
+        front_nnz = front.nnz
+
+        for mtx in direct_sum.values():
+            step = front @ mtx
+            front += _transform_front(step, constr_states_cnt, separated_start)
+
+    result = set()
+    constraint_states = list(constraint.states)
+    fa_states = list(fa.states)
+
+    for row, col in zip(*front.nonzero()):
+        if (
+            not col < constr_states_cnt
+            and constraint_states[row % constr_states_cnt] in constraint.final_states
+        ):
+            state_index = col - constr_states_cnt
+            if fa_states[state_index] in fa.final_states:
+                if separated_start:
+                    result.add((State(row // constr_states_cnt), State(state_index)))
+                else:
+                    result.add(State(state_index))
+
+    return result
