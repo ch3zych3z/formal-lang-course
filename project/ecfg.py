@@ -19,9 +19,9 @@ class Ecfg:
         productions = {}
         for production in cfg.productions:
             regex_str = (
-                ".".join(variable.value for variable in production.body)
+                " ".join(variable.value for variable in production.body)
                 if len(production.body) > 0
-                else " "
+                else "$"
             )
             regex = Regex(regex_str)
 

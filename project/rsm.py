@@ -15,8 +15,8 @@ class Rsm:
     @staticmethod
     def from_ecfg(ecfg: "Ecfg") -> "Rsm":
         boxes = {}
-        for head, fa in ecfg.productions.items():
-            boxes[head] = fa.to_epsilon_nfa()
+        for head, regex in ecfg.productions.items():
+            boxes[head] = regex.to_epsilon_nfa()
         return Rsm(boxes=boxes, start_symbol=ecfg.start_symbol)
 
     def minimize(self) -> "Rsm":
