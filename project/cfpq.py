@@ -3,7 +3,7 @@ from pyformlang.cfg import CFG, Variable
 from queue import SimpleQueue
 from typing import Set, Tuple, Any
 
-import cfg_utils
+import project.cfg_utils as cfg_utils
 
 
 def hellings_cfpq(cfg: CFG, graph: MultiDiGraph) -> Set[Tuple[Any, Variable, Any]]:
@@ -66,7 +66,7 @@ def cfpq(
     start_nodes: Set[Any] = None,
     final_nodes: Set[Any] = None,
     start_symbol: Variable = Variable("S"),
-):
+) -> Set[Tuple[Any, Variable, Any]]:
     if not start_nodes:
         start_nodes = set(graph.nodes)
     if not final_nodes:
