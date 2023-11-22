@@ -13,16 +13,26 @@ cfgs = ["aba_star", "bbs", "empty", "epsilon"]
 algos = ["hellings"]
 
 expected_results = {
-    ("bamboo", "aba_star"): set(),
-    ("bamboo", "bbs"): {("2", "2"), ("3", "3"), ("1", "1"), ("0", "0")},
+    ("bamboo", "aba_star"): {("0", "3"), ("0", "2")},
+    ("bamboo", "bbs"): {("1", "1"), ("0", "2"), ("0", "0"), ("2", "2"), ("3", "3")},
     ("bamboo", "empty"): set(),
     ("bamboo", "epsilon"): {("2", "2"), ("3", "3"), ("1", "1"), ("0", "0")},
     ("empty", "aba_star"): set(),
     ("empty", "bbs"): set(),
     ("empty", "empty"): set(),
     ("empty", "epsilon"): set(),
-    ("two_cycles", "aba_star"): set(),
-    ("two_cycles", "bbs"): {("2", "2"), ("3", "3"), ("1", "1"), ("0", "0")},
+    ("two_cycles", "aba_star"): {("1", "3")},
+    ("two_cycles", "bbs"): {
+        ("1", "1"),
+        ("0", "2"),
+        ("1", "2"),
+        ("0", "0"),
+        ("2", "3"),
+        ("2", "2"),
+        ("0", "3"),
+        ("1", "3"),
+        ("3", "3"),
+    },
     ("two_cycles", "empty"): set(),
     ("two_cycles", "epsilon"): {("2", "2"), ("3", "3"), ("1", "1"), ("0", "0")},
 }

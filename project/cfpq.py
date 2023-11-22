@@ -12,10 +12,12 @@ class Productions:
     epsilon: Set[Production]
     terminal: Set[Production]
     variable: Set[Production]
+    wcnf: CFG
 
     def __init__(self, cfg: CFG):
         wcnf = cfg_utils.to_wcnf(cfg)
 
+        self.wcnf = wcnf
         self.epsilon = set()
         self.terminal = set()
         self.variable = set()
@@ -41,14 +43,14 @@ def _hellings_cfpq(cfg: CFG, graph: MultiDiGraph) -> Set[Tuple[Any, Variable, An
 
     for from_v, to_v, label in graph.edges.data("label"):
         for prod in prods.terminal:
-            if label == prod.body[0]:
+            if label == prod.body[0].value:
                 paths.add((from_v, prod.head, to_v))
 
     queue = SimpleQueue()
     for r in paths:
         queue.put(r)
 
-    def combine_paths(path1, path2):
+    def combine_paths(path1, path2, new_paths):
         from_v1, var1, to_v1 = path1
         from_v2, var2, to_v2 = path2
         if to_v1 == from_v2:
@@ -60,13 +62,15 @@ def _hellings_cfpq(cfg: CFG, graph: MultiDiGraph) -> Set[Tuple[Any, Variable, An
                     and new_reachability not in paths
                 ):
                     queue.put(new_reachability)
-                    paths.add(new_reachability)
+                    new_paths.add(new_reachability)
 
     while not queue.empty():
+        new_paths = set()
         path1 = queue.get()
         for path2 in paths:
-            combine_paths(path1, path2)
-            combine_paths(path2, path1)
+            combine_paths(path1, path2, new_paths)
+            combine_paths(path2, path1, new_paths)
+        paths |= new_paths
 
     return paths
 
