@@ -3,6 +3,7 @@ from pyformlang.cfg import CFG, Variable, Production
 from queue import SimpleQueue
 from typing import Set, Tuple, Any
 from dataclasses import dataclass
+from scipy.sparse import lil_matrix
 
 import project.cfg_utils as cfg_utils
 
@@ -75,6 +76,54 @@ def _hellings_cfpq(cfg: CFG, graph: MultiDiGraph) -> Set[Tuple[Any, Variable, An
     return paths
 
 
+def _matrix_cfpq(cfg: CFG, graph: MultiDiGraph) -> Set[Tuple[Any, Variable, Any]]:
+    prods = Productions(cfg)
+
+    var_to_mtx = {}
+    nodes = list(graph.nodes)
+    node_index = dict([(node, i) for i, node in enumerate(nodes)])
+
+    n = graph.number_of_nodes()
+    for var in prods.wcnf.variables:
+        var_to_mtx[var] = lil_matrix((n, n), dtype=bool)
+
+    for i, node in enumerate(graph.nodes):
+        for prod in prods.epsilon:
+            var_to_mtx[prod.head][i, i] = True
+
+    for from_, to, label in graph.edges(data="label"):
+        for prod in prods.terminal:
+            if label == prod.body[0].value:
+                from_index = node_index[from_]
+                to_index = node_index[to]
+                var_to_mtx[prod.head][from_index, to_index] = True
+
+    while True:
+        new_paths_found = False
+        for prod in prods.variable:
+            previous_nonzero_count = var_to_mtx[prod.head].count_nonzero()
+            assert isinstance(prod.body[0], Variable)
+            assert isinstance(prod.body[1], Variable)
+            var_to_mtx[prod.head] += var_to_mtx[prod.body[0]] @ var_to_mtx[prod.body[1]]
+
+            new_paths_found |= (
+                previous_nonzero_count != var_to_mtx[prod.head].count_nonzero()
+            )
+
+        if not new_paths_found:
+            break
+
+    reachabilities = set()
+    for variable, matrix in var_to_mtx.items():
+        rows, cols = matrix.nonzero()
+        for i in range(len(rows)):
+            row_index = rows[i]
+            col_index = cols[i]
+            reachabilities.add((nodes[row_index], variable, nodes[col_index]))
+
+    return reachabilities
+
+
 def _cfpq(
     cfg: CFG,
     graph: MultiDiGraph,
@@ -100,6 +149,7 @@ def _cfpq(
 
 _algos = {
     "hellings": _hellings_cfpq,
+    "matrix": _matrix_cfpq,
 }
 
 
