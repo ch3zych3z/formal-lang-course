@@ -1,7 +1,6 @@
 from pyformlang.cfg import Variable
 from pyformlang.finite_automaton import EpsilonNFA, State
 from typing import Dict
-
 from project.ecfg import Ecfg
 
 
