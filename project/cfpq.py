@@ -3,9 +3,12 @@ from pyformlang.cfg import CFG, Variable, Production
 from queue import SimpleQueue
 from typing import Set, Tuple, Any
 from dataclasses import dataclass
-from scipy.sparse import lil_matrix
+from scipy.sparse import dok_array, eye, lil_matrix
 
 import project.cfg_utils as cfg_utils
+from project.ecfg import Ecfg
+from project.rsm import Rsm
+import project.automata_utils as au
 
 
 @dataclass
@@ -124,6 +127,67 @@ def _matrix_cfpq(cfg: CFG, graph: MultiDiGraph) -> Set[Tuple[Any, Variable, Any]
     return reachabilities
 
 
+def _tensor_cfpq(cfg: CFG, graph: MultiDiGraph) -> Set[Tuple[Any, Variable, Any]]:
+    bmatrix_rsm = au.BooleanDecomposition.from_fa(
+        Rsm.from_ecfg(Ecfg.from_cfg(cfg)).minimize().merge_boxes()
+    )
+
+    bmatrix_graph = au.BooleanDecomposition.from_fa(au.nfa_from_graph(graph))
+    graph_states_count = len(bmatrix_graph.states)
+
+    identity_matrix = eye(graph_states_count, format="dok", dtype=bool)
+    for nonterm in cfg.get_nullable_symbols():
+        if nonterm.value in bmatrix_graph.labels:
+            bmatrix_graph[nonterm.value] += identity_matrix
+        else:
+            bmatrix_graph[nonterm.value] = identity_matrix
+
+    new_paths_found = True
+    last_iteration_nnz = 0
+    while new_paths_found:
+        tc_indexes = list(
+            zip(
+                *au.transitive_closure_boolean(
+                    au.intersect_boolean(bmatrix_rsm, bmatrix_graph)
+                ).nonzero()
+            )
+        )
+        new_paths_found &= last_iteration_nnz != len(tc_indexes)
+        last_iteration_nnz = len(tc_indexes)
+
+        for i_from, i_to in tc_indexes:
+            rsm_from, graph_from = divmod(i_from, graph_states_count)
+            rsm_to, graph_to = divmod(i_to, graph_states_count)
+
+            state_from = bmatrix_rsm.states[rsm_from]
+            state_to = bmatrix_rsm.states[rsm_to]
+            nonterm, _ = state_from.value
+            if (
+                state_from in bmatrix_rsm.start_states
+                and state_to in bmatrix_rsm.final_states
+            ):
+                if nonterm.value in bmatrix_graph.labels:
+                    bmatrix_graph[nonterm.value][graph_from, graph_to] = True
+                else:
+                    bmatrix_graph[nonterm.value] = lil_matrix(
+                        (
+                            graph_states_count,
+                            graph_states_count,
+                        ),
+                        dtype=bool,
+                    )
+                    bmatrix_graph[nonterm.value][graph_from, graph_to] = True
+    return {
+        (
+            bmatrix_graph.states[graph_from],
+            nonterm,
+            bmatrix_graph.states[graph_to],
+        )
+        for nonterm, matrix in bmatrix_graph.items
+        for graph_from, graph_to in zip(*matrix.nonzero())
+    }
+
+
 def _cfpq(
     cfg: CFG,
     graph: MultiDiGraph,
@@ -150,6 +214,7 @@ def _cfpq(
 _algos = {
     "hellings": _hellings_cfpq,
     "matrix": _matrix_cfpq,
+    "tensor": _tensor_cfpq,
 }
 
 

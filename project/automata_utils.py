@@ -84,9 +84,34 @@ class BooleanDecomposition:
     def __getitem__(self, label: Any):
         return self.__label_matrices[label]
 
+    def __setitem__(self, label, value):
+        self.__label_matrices[label] = value
+
     @property
     def labels(self) -> KeysView[Any]:
         return self.__label_matrices.keys()
+
+    @property
+    def adjacency_matrix(self):
+        if len(self.labels) == 0:
+            return sparse.csr_matrix((0, 0), dtype=bool)
+        return sum(self.__label_matrices.values())
+
+    @property
+    def items(self):
+        return self.__label_matrices.items()
+
+    @property
+    def states(self) -> List[T]:
+        return self.__states
+
+    @property
+    def start_states(self) -> Set[T]:
+        return self.__start_states
+
+    @property
+    def final_states(self) -> Set[T]:
+        return self.__final_states
 
     def index_of(self, state: Any) -> int:
         return self.__states_indices[state]
@@ -109,12 +134,11 @@ class BooleanDecomposition:
         return fa
 
 
-def intersect(fa1: FiniteAutomaton, fa2: FiniteAutomaton) -> FiniteAutomaton:
-    bdecomp1 = BooleanDecomposition.from_fa(fa1)
-    bdecomp2 = BooleanDecomposition.from_fa(fa2)
-
+def intersect_boolean(
+    fa1: "BooleanDecomposition", fa2: "BooleanDecomposition"
+) -> "BooleanDecomposition":
     states_count2 = len(fa2.states)
-    labels = bdecomp1.labels & bdecomp2.labels
+    labels = fa1.labels & fa2.labels
 
     intersected_label_matrices = {}
     states_indices = {}
@@ -122,16 +146,12 @@ def intersect(fa1: FiniteAutomaton, fa2: FiniteAutomaton) -> FiniteAutomaton:
     final_states = set()
 
     for label in labels:
-        intersected_label_matrices[label] = sparse.kron(
-            bdecomp1[label], bdecomp2[label]
-        )
+        intersected_label_matrices[label] = sparse.kron(fa1[label], fa2[label])
 
     states = []
     for state1 in fa1.states:
         for state2 in fa2.states:
-            state_index = states_count2 * bdecomp1.index_of(state1) + bdecomp2.index_of(
-                state2
-            )
+            state_index = states_count2 * fa1.index_of(state1) + fa2.index_of(state2)
 
             state = State((state1.value, state2.value))
             states_indices[state] = state_index
@@ -143,7 +163,14 @@ def intersect(fa1: FiniteAutomaton, fa2: FiniteAutomaton) -> FiniteAutomaton:
 
     return BooleanDecomposition(
         states_indices, intersected_label_matrices, states, start_states, final_states
-    ).compose()
+    )
+
+
+def intersect(fa1: FiniteAutomaton, fa2: FiniteAutomaton) -> FiniteAutomaton:
+    bdecomp1 = BooleanDecomposition.from_fa(fa1)
+    bdecomp2 = BooleanDecomposition.from_fa(fa2)
+
+    return intersect_boolean(bdecomp1, bdecomp2).compose()
 
 
 def adjacency_matrix(fa: FiniteAutomaton):
@@ -165,18 +192,24 @@ def adjacency_matrix(fa: FiniteAutomaton):
     return adj_matrix
 
 
-def transitive_closure(fa: FiniteAutomaton):
-    closure = adjacency_matrix(fa)
-
-    prev = closure.nnz
+def _transitive_closure(adj_matrix):
+    prev = adj_matrix.nnz
     curr = 0
 
     while prev != curr:
-        closure += closure @ closure
+        adj_matrix += adj_matrix @ adj_matrix
         prev = curr
-        curr = closure.nnz
+        curr = adj_matrix.nnz
 
-    return closure
+    return adj_matrix
+
+
+def transitive_closure_boolean(decomp: "BooleanDecomposition"):
+    return _transitive_closure(decomp.adjacency_matrix)
+
+
+def transitive_closure(fa: FiniteAutomaton):
+    return _transitive_closure(adjacency_matrix(fa))
 
 
 def _create_front(fa: FiniteAutomaton, constraint: FiniteAutomaton):

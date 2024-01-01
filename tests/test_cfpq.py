@@ -10,7 +10,7 @@ resource_path = "tests/resources/cfg/path_query"
 
 graphs = ["bamboo", "empty", "two_cycles"]
 cfgs = ["aba_star", "bbs", "empty", "epsilon"]
-algos = ["hellings", "matrix"]
+algos = ["hellings", "matrix", "tensor"]
 
 expected_results = {
     ("bamboo", "aba_star"): {("0", "3"), ("0", "2")},
