@@ -45,6 +45,9 @@ jobs:
           python -m pip install -r requirements.txt
           python -m pip list
 
+      - name: Generate ANTLR parser
+        run: antlr4 project/graph_query_lang/lang.g4 -Dlanguage=Python3
+
       # Run tests
       - name: Run pytest
         run: |
